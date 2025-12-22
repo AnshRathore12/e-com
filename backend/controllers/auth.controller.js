@@ -17,11 +17,16 @@ const generateTokens=(userId)=>{
 //   await redis.set(`refresh_token:${userId}`,refreshToken,"EX",7*24*60*60);//7days
 // }
 const storeRefreshToken = async (userId, refreshToken) => {
-  await redis.set(
-    `refresh_token:${userId}`,
-    refreshToken,
-    { ex: 7 * 24 * 60 * 60 } // 7 days
-  );
+  try {
+    await redis.set(
+      `refresh_token:${userId}`,
+      refreshToken,
+      { ex: 7 * 24 * 60 * 60 } // 7 days
+    );
+  } catch (error) {
+    console.log("Redis error (non-fatal):", error.message);
+    // Continue without storing refresh token - user can still login
+  }
 };
 
 const setCookies=(res,accessToken,refreshToken)=>{
@@ -54,12 +59,14 @@ await storeRefreshToken(user._id,refreshToken);
 
 setCookies(res,accessToken,refreshToken);
 
-res.status(200).json({user:{
+res.status(200).json({
+  message:"User created Successfully",
+  user:{
   _id:user._id,
   name:user.name,
   email:user.email,
   role:user.role,
-}},{message:"User created Successfully"});
+}});
 
 } catch (error) {
   res.status(500).json({message:"Error in Sign up Controller"+ error.message});
@@ -69,7 +76,7 @@ export const login =async (req,res)=>{
   try {
     const {email,password}=req.body;
     const user=await User.findOne({email});
-
+    
     if(user && (await user.comparePassword(password))){
       const {accessToken,refreshToken}=generateTokens(user._id)
 
@@ -134,5 +141,10 @@ export const refreshToken=async(req,res)=>{
   }
 }
 
-// TODO :implement get profile later
-// export const getProfile=async(req,res)=>{}
+export const getProfile = async (req, res) => {
+  try {
+    res.json(req.user);
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+}

@@ -18,6 +18,7 @@ export const addToCart=async(req,res)=>{
     res.status(500).json({message:"Server error",error:error.message})
   }
 }
+
 export const removeAllFromCart=async(req,res)=>{
   try {
     const {productId}=req.body;
@@ -61,16 +62,16 @@ export const updateQuantity=async(req,res)=>{
 
 export const getCartProducts=async(req,res)=>{
   try {
-    const products=await Product.find({_id:{$in:req.user.cartItems}});
+    const products=await Product.find({_id:{$in:req.user.cartItems.map(item=>item.id)}});
     // add quantity for each product
 
     const cartItems=products.map(product=>{
-      const item=req.user.cartItems.find(cartItems=>cartItems===product.id);
-      return {...product.toJSON(),quantity:item.quantity}
+      const item=req.user.cartItems.find(cartItem=>cartItem.id.toString()===product._id.toString());
+      return {...product.toJSON(),quantity:item?.quantity || 1}
     })
     res.json(cartItems);
   } catch (error) {
-    console.log("Error in getCardProducts controller",error.message);
+    console.log("Error in getCartProducts controller",error.message);
     res.status(500).json({message:"Server error",error:error.message})
   }
 }

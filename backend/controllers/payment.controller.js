@@ -12,18 +12,19 @@ export const createCheckoutSession =async(req,res)=>{
     }
     let totalAmount=0;
     const lineItems=products.map(product=>{
-      const amount=Math.round(product.price*100)//stripe wants you to send format of cents=>$10*100=1000
+      const amount=Math.round(product.price*100)//stripe wants you to send in smallest currency unit=> ₹10*100=1000 paise
       totalAmount+=amount*product.quantity
 
       return {
         price_data:{
-          currency:"usd",
+          currency:"inr",
           product_data:{
             name:product.name,
             images:[product.image],
           },
           unit_amount:amount
-        }
+        },
+        quantity:product.quantity||1,
       }
     });
 
@@ -37,10 +38,10 @@ export const createCheckoutSession =async(req,res)=>{
     }
 
     const session=await stripe.checkout.sessions.create({
-      payment_method_types:["card",],
+      payment_method_types:["card"],
       line_items:lineItems,
       mode:"payment",
-      success_url:`${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID`,
+      success_url: `${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:`${process.env.CLIENT_URL}/purchase-cancel`,
       discounts: coupon
         ? [
@@ -62,10 +63,10 @@ export const createCheckoutSession =async(req,res)=>{
         },
     })
 
-   if(totalAmount>=20000){
-    await createNewCoupon(req.user._id.toString)
-   }
-   res.status(200).json({id:session.id,totalAmount:totalAmount/100});
+  if(totalAmount>=20000){
+   await createNewCoupon(req.user._id.toString())
+  }
+  res.status(200).json({url: session.url, id: session.id, totalAmount: totalAmount/100});
   } catch (error) {
     console.log("Error processing successfully checkout",error);
     res.status(500).json({message:"Error processing successfully checkout",error:error.message})
@@ -91,7 +92,7 @@ export const checkoutSuccess=async(req,res)=>{
       const newOrder=new Order({
         user:session.metadata.userId,
         products:products.map(product=>({
-          product:product._id,
+          product:product._id || product.id,
           quantity:product.quantity,
           price:product.price
         })),
@@ -115,16 +116,18 @@ export const checkoutSuccess=async(req,res)=>{
         duration:"once",
       })
       return coupon.id;
-    }
+      }
 
-    async function createNewCoupon(userId){
-      const newCoupon=new Coupon({
-        code:"GIFT"+Math.round().toString(36).substring(2,8).toUpperCase(),
-        discountPercentage:10,
-        userId:userId
-      })
-      await newCoupon.save();
+      async function createNewCoupon(userId){
+        const expirationDate = new Date();
+        expirationDate.setDate(expirationDate.getDate() + 30); // 30 days from now
 
-      return newCoupon
-    }
-export default router;
+        const newCoupon = new Coupon({
+          code: "GIFT" + Math.random().toString(36).substring(2,8).toUpperCase(),
+          discountPercentage: 10,
+          userId: userId,
+          expirationDate: expirationDate
+        });
+        await newCoupon.save();
+        return newCoupon;
+      }
