@@ -6,17 +6,25 @@ import { MoveRight } from 'lucide-react';
 import {loadStripe} from '@stripe/stripe-js'
 import axios from "../lib/axios"
 
-// const stripePromise=loadStripe("pk_test_51Sh0DcJFLCD9Le0hUMJ34XrmwI6DBFBSQd27YsnB2QDhr45xoqKD0y0eYBPVH2Gpcuei4M9vV2bwiBwMkNaBWQF300ivqVCnAF");
+const stripePromise=loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const OrderSummary = () => {
-  const {total,subtotal,coupon,isCouponApplied,cart}=useCartStore();
-  const savings=subtotal-total;
-  const formattedSubtotal=subtotal.toFixed(2);
-  const formattedSavings=savings.toFixed(2);
-  const formattedTotal=total.toFixed(2);
+  const { total, subtotal, coupon, isCouponApplied, cart } = useCartStore();
+  // Fallbacks to prevent undefined errors
+  const safeSubtotal = typeof subtotal === 'number' && !isNaN(subtotal) ? subtotal : 0;
+  const safeTotal = typeof total === 'number' && !isNaN(total) ? total : 0;
+  const savings = safeSubtotal - safeTotal;
+  const formattedSubtotal = safeSubtotal.toFixed(2);
+  const formattedSavings = savings.toFixed(2);
+  const formattedTotal = safeTotal.toFixed(2);
+  // Calculate coupon discount if not present
+  let couponDiscount = 0;
+  if (coupon && coupon.discountPercentage) {
+    couponDiscount = safeSubtotal * (coupon.discountPercentage / 100);
+  }
 
   const handlePayment=async()=>{
-    const res = await axios.post("/payments/create-checkout-session", { products: cart, coupon: coupon ? coupon.code : null });
+    const res = await axios.post("/payments/create-checkout-session", { products: cart, couponCode: coupon ? coupon.code : null });
     const session = res.data;
     if (session.url) {
       window.location.href = session.url;
@@ -55,10 +63,12 @@ const OrderSummary = () => {
 
 
         {
-          coupon && isCouponApplied &&(
+          coupon && isCouponApplied && (
             <dl className='flex items-center justify-between gap-4'>
               <dt className='text-base font-normal text-gray-300 '>Coupon ({coupon.code}) Applied</dt>
-              <dd className='text-base font-medium text-emerald-400 '>-₹{coupon.discount.toFixed(2)}</dd>
+              <dd className='text-base font-medium text-emerald-400 '>
+                -₹{couponDiscount.toFixed(2)}
+              </dd>
             </dl>
           )
         }

@@ -75,36 +75,39 @@ export const createCheckoutSession =async(req,res)=>{
 
 export const checkoutSuccess=async(req,res)=>{
   try {
-    const {sessionId}=req.body
-    const session =await stripe.checkout.sessions.retrieve(sessionId)
-    if(session.payment_status==="paid"){
-      if(session.metadata.couponCode){
+    const { sessionId } = req.body;
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (session.payment_status === "paid") {
+      if (session.metadata.couponCode) {
         await Coupon.findOneAndUpdate({
-          code:session.metadata.couponCode,userId:session.metadata.userId
-        },{
-          isActive:false
-        }
-      )
+          code: session.metadata.couponCode,
+          userId: session.metadata.userId
+        }, {
+          isActive: false
+        });
       }
       // create a new order
-
-      const products=JSON.parse(session.metadata.products);
-      const newOrder=new Order({
-        user:session.metadata.userId,
-        products:products.map(product=>({
-          product:product._id || product.id,
-          quantity:product.quantity,
-          price:product.price
+      const products = JSON.parse(session.metadata.products);
+      const newOrder = new Order({
+        user: session.metadata.userId,
+        products: products.map(product => ({
+          product: product._id || product.id,
+          quantity: product.quantity,
+          price: product.price
         })),
-        totalAmount:session.amount_total/100, // convert from cents to dollars
+        totalAmount: session.amount_total / 100, // convert from cents to dollars
         // paymentIntent:session.payment_intent,
-        stripeSessionId:session.id
-      })
-      await newOrder.save()
+        stripeSessionId: session.id
+      });
+      await newOrder.save();
+
+      // Clear user's cart after successful payment
+      const User = (await import("../models/user.model.js")).default;
+      await User.findByIdAndUpdate(session.metadata.userId, { cartItems: [] });
     }
   } catch (error) {
-    console.log("Error processing successfully checkout",error);
-    res.status(500).json({message:"Error processing successfully checkout",error:error.message})
+    console.log("Error processing successfully checkout", error);
+    res.status(500).json({ message: "Error processing successfully checkout", error: error.message });
   }
 }
 
@@ -119,6 +122,7 @@ export const checkoutSuccess=async(req,res)=>{
       }
 
       async function createNewCoupon(userId){
+        await Coupon.findOneAndDelete({userId:userId})
         const expirationDate = new Date();
         expirationDate.setDate(expirationDate.getDate() + 30); // 30 days from now
 

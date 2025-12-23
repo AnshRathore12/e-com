@@ -13,6 +13,7 @@ import CategoryPage from "./pages/CategoryPage"
 import CartPage from "./pages/CartPage";
 import { useCartStore } from "./stores/useCartStore";
 import PurchaseSuccessPage from "./pages/PurchaseSuccessPage";
+import PurchaseCancelPage from "./pages/PurchaseCancelPage";
 function App() {
   const {user, checkAuth, checkingAuth} = useUserStore();
   const {getCartItems}=useCartStore()
@@ -58,7 +59,9 @@ function App() {
           <Route path="/secret-dashboard" element={user?.role==="admin"? <AdminPage/>:<LoginPage />} />
           <Route path="/category/:category" element={<CategoryPage/>} />
           <Route path='/cart' element={user? <CartPage/> : <LoginPage />} ></Route>
-          <Route path='/purchase-success' element={user? <PurchaseSuccessPage/> : <LoginPage />} ></Route>
+          <Route path='/success' element={user? <PurchaseSuccessPage/> : <LoginPage />} ></Route>
+          <Route path='/purchase-cancel' 
+          element={user? <PurchaseCancelPage/> : <LoginPage />} ></Route>
         </Routes>
       </div>
       <Toaster/>
